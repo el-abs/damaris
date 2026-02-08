@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fiesta Survival ULTIMATE</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+        body {
+            background-color: #050510;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            /* Fuente futurista/neon */
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: none;
+            /* Removed for full screen */
+            border-radius: 0;
+            /* Removed for full screen */
+            overflow: hidden;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        canvas {
+            display: block;
+            background: radial-gradient(circle at center, #1a0b2e 0%, #000000 100%);
+        }
+
+        /* UI Hud con Glassmorphism */
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            right: 20px;
+            pointer-events: none;
+            display: flex;
+            justify-content: space-between;
+            z-index: 10;
+        }
+
+        .stat-box {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 10px 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            width: 35vw;
+            /* Responsive width */
+            max-width: 220px;
+            min-width: 150px;
+            transition: transform 0.2s;
+            transition: transform 0.2s;
+        }
+
+        .stat-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            letter-spacing: 1px;
+            text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+        }
+
+        .progress-track {
+            background: rgba(0, 0, 0, 0.6);
+            height: 12px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .progress-bar {
+            height: 100%;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+        }
+
+        /* Brillo sutil en las barras */
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0) 0%, rgba(255, 255, 255, 0.3) 50%, rgba(255, 255, 255, 0) 100%);
+        }
+
+        #life-bar {
+            background: linear-gradient(90deg, #ff3e3e, #ff0055);
+            box-shadow: 0 0 10px #ff0055;
+            width: 100%;
+        }
+
+        #drunk-bar {
+            background: linear-gradient(90deg, #00d2ff, #3a7bd5);
+            box-shadow: 0 0 10px #00d2ff;
+            width: 0%;
+        }
+
+        /* Level Indicator */
+        #level-display {
+            position: absolute;
+            top: 80px;
+            /* Debajo del HUD superior pero visible */
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 40px;
+            font-weight: bold;
+            color: #f1c40f;
+            text-shadow: 0 0 20px #f1c40f, 0 0 40px red;
+            opacity: 0;
+            /* Invisible por defecto, aparece al subir nivel */
+            transition: opacity 0.5s, transform 0.5s;
+            pointer-events: none;
+            z-index: 15;
+            white-space: nowrap;
+        }
+
+        #current-level-small {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            /* Movido un poco más abajo para evitar solapamiento si las barras son muy anchas */
+            top: 60px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            color: #ccc;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 15px;
+            border-radius: 20px;
+            border: 1px solid #555;
+            text-transform: uppercase;
+        }
+
+        /* Pantallas (Start / Game Over) */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            transition: opacity 0.5s;
+        }
+
+        h1 {
+            font-size: 50px;
+            margin: 0;
+            background: linear-gradient(to right, #ff00cc, #3333ff);
+            background: linear-gradient(to right, #ff00cc, #3333ff);
+            background-clip: text;
+            /* Fix lint */
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(51, 51, 255, 0.5);
+            text-transform: uppercase;
+            letter-spacing: 5px;
+            text-align: center;
+        }
+
+        p {
+            color: #ccc;
+            font-size: 18px;
+            margin-top: 10px;
+        }
+
+        button {
+            margin-top: 30px;
+            background: linear-gradient(45deg, #ff00cc, #3333ff);
+            border: none;
+            padding: 15px 40px;
+            color: white;
+            font-family: inherit;
+            font-size: 20px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 0, 204, 0.4);
+            transition: all 0.3s;
+            text-transform: uppercase;
+        }
+
+        button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 40px rgba(255, 0, 204, 0.8);
+        }
+
+        #controls {
+            margin-top: 20px;
+            font-size: 14px;
+            opacity: 0.7;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="game-container">
+        <!-- HUD -->
+        <div id="hud">
+            <div class="stat-box">
+                <div class="stat-label">
+                    <span>SALUD</span>
+                    <span id="life-val">100%</span>
+                </div>
+                <div class="progress-track">
+                    <div id="life-bar" class="progress-bar"></div>
+                </div>
+            </div>
+
+            <div id="current-level-small">TERRAZAS</div>
+
+            <div class="stat-box" style="text-align: right;">
+                <div class="stat-label">
+                    <span id="drunk-val">0%</span>
+                    <span>EBRIEDAD</span>
+                </div>
+                <div class="progress-track">
+                    <div id="drunk-bar" class="progress-bar"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="level-display">TERRAZAS</div>
+
+        <!-- Pantalla Inicio -->
+        <div id="start-screen" class="overlay-screen">
+            <h1>Neon Party<br><small style="font-size: 30px;">Fiesta en SIL</small></h1>
+            <p>Ayuda a Damaris a esquivar el alcohol y tomar agua.</p>
+            <div id="controls">← Mover Izquierda | Mover Derecha →</div>
+            <button onclick="startGame()">¡A BAILAR!</button>
+        </div>
+
+        <!-- Pantalla Game Over -->
+        <div id="game-over" class="overlay-screen" style="display: none;">
+            <h1 style="font-size: 50px; color: #ff3e3e;">CIMA ETÍLICA</h1>
+            <p id="final-score">Sobreviviste X segundos</p>
+            <button onclick="startGame()">OTRA RONDA</button>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <script>
+        /**
+         * FIESTA SURVIVAL - VERSION PRO
+         * Mejoras: Sistema de partículas, iluminación, dificultad progresiva, físicas suaves.
+         */
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimización
+
+        // Elementos UI
+        const ui = {
+            lifeBar: document.getElementById('life-bar'),
+            lifeVal: document.getElementById('life-val'),
+            drunkBar: document.getElementById('drunk-bar'),
+            drunkVal: document.getElementById('drunk-val'),
+            levelDisplay: document.getElementById('level-display'),
+            levelSmall: document.getElementById('current-level-small'),
+            startScreen: document.getElementById('start-screen'),
+            gameOverScreen: document.getElementById('game-over'),
+            finalScore: document.getElementById('final-score')
+        };
+
+        // --- ASSETS GENERADOS ---
+        function createGlowingSprite(emoji, size, colorGlow) {
+            const c = document.createElement('canvas');
+            const s = size * 2.5; // Margen para el glow extra
+            c.width = s;
+            c.height = s;
+            const cx = c.getContext('2d');
+
+            // Glow intenso
+            cx.shadowColor = colorGlow;
+            cx.shadowBlur = 25;
+            cx.font = `${size}px Arial`;
+            cx.textAlign = 'center';
+            cx.textBaseline = 'middle';
+            cx.fillText(emoji, s / 2, s / 2);
+
+            return c;
+        }
+
+        const SPRITES = {
+            player: loadImage('damaris.png'), // User provided image
+            cantina: createGlowingSprite('👽', 70, '#f1c40f'),
+            // Items (Local PNGs)
+            copaVino: loadImage('copa vino.png'),
+            copaWisky: loadImage('copa wisky.png'),
+            botellaCorona: loadImage('botella corona.png'),
+            botellaVino: loadImage('botella vino.png'),
+            botellaWisky: loadImage('botella wisky.png'),
+            gotaAgua: loadImage('gota agua.png'),
+            limon: loadImage('limon.png'),
+            botellaAgua: loadImage('botella agua.png')
+        };
+
+        function loadImage(src) {
+            const img = new Image();
+            img.src = src;
+            return img;
+        }
+
+        // --- ESTADO GLOBAL ---
+        let gameRunning = false;
+        let lastTime = 0;
+
+        const GAME = {
+            width: window.innerWidth,
+            height: window.innerHeight,
+            life: 100,
+            drunk: 0,
+            time: 0,
+            level: 1,
+            score: 0
+        };
+
+        // Auto resize
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            GAME.width = canvas.width;
+            GAME.height = canvas.height;
+
+            // Keep player on screen if resized
+            if (PLAYER.y > GAME.height - 100) PLAYER.y = GAME.height - 100;
+            if (PLAYER.x > GAME.width) PLAYER.x = GAME.width - 50;
+        });
+
+        // Init canvas size immediately
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        const LEVEL_NAMES = ["", "NIVEL 1: TERRAZAS", "NIVEL 2: LOS LOROS", "NIVEL 3: EUREKA"];
+
+        const PLAYER = {
+            x: 0, y: 0,
+            w: 60, h: 60,
+            vx: 0, speed: 600,
+            friction: 0.9,
+            targetX: 0
+        };
+
+        const CANTINA = {
+            x: 0, y: 40,
+            w: 80, h: 80,
+            speed: 200,
+            phase: 0
+        };
+
+        let entities = [];
+        let particles = [];
+        let floatingTexts = [];
+
+        // --- INPUT ---
+        const keys = { left: false, right: false };
+        window.addEventListener('keydown', e => {
+            if (e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'ArrowRight') keys.right = true;
+        });
+        window.addEventListener('keyup', e => {
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
+        });
+
+        // --- CONTROLES TÁCTILES (MOBILE) ---
+        window.addEventListener('touchstart', e => {
+            e.preventDefault(); // Evitar scroll/zoom
+            const touchX = e.touches[0].clientX;
+            if (touchX < window.innerWidth / 2) {
+                keys.left = true;
+                keys.right = false;
+            } else {
+                keys.right = true;
+                keys.left = false;
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', e => {
+            e.preventDefault();
+            keys.left = false;
+            keys.right = false;
+        }, { passive: false });
+
+        // --- SISTEMA DE PARTÍCULAS ---
+        class Particle {
+            constructor(x, y, color, speed, size) {
+                this.x = x; this.y = y;
+                this.color = color;
+                this.size = size;
+                const angle = Math.random() * Math.PI * 2;
+                const vel = Math.random() * speed;
+                this.vx = Math.cos(angle) * vel;
+                this.vy = Math.sin(angle) * vel;
+                this.life = 1.0;
+                this.decay = 0.02 + Math.random() * 0.03;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life -= this.decay;
+                this.size *= 0.95;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        class FloatingText {
+            constructor(x, y, text, color, size = 20) {
+                this.x = x; this.y = y;
+                this.text = text;
+                this.color = color;
+                this.size = size;
+                this.life = 1.0;
+                this.vy = -1.5;
+            }
+            update() {
+                this.y += this.vy;
+                this.life -= 0.015;
+            }
+            draw(ctx) {
+                ctx.globalAlpha = this.life;
+                ctx.fillStyle = this.color;
+                ctx.font = `bold ${this.size}px Arial`;
+                ctx.fillText(this.text, this.x, this.y);
+                ctx.globalAlpha = 1.0;
+            }
+        }
+
+        function spawnExplosion(x, y, color, big = false) {
+            const count = big ? 30 : 15;
+            const size = big ? 8 : 5;
+            const speed = big ? 8 : 5;
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle(x, y, color, speed, Math.random() * size + 2));
+            }
+        }
+
+        // --- LOGICA PRINCIPAL ---
+
+        function startGame() {
+            gameRunning = true;
+            GAME.life = 100;
+            GAME.drunk = 0;
+            GAME.time = 0;
+            GAME.level = 1;
+            entities = [];
+            particles = [];
+            floatingTexts = [];
+
+            PLAYER.x = GAME.width / 2;
+            PLAYER.y = GAME.height - 100;
+
+            ui.startScreen.style.display = 'none';
+            ui.gameOverScreen.style.display = 'none';
+
+            showLevelUp(1); // Force show level 1
+
+            lastTime = performance.now();
+            requestAnimationFrame(loop);
+        }
+
+        function showLevelUp(level) {
+            const name = LEVEL_NAMES[level] || `NIVEL ${level}`;
+
+            ui.levelDisplay.innerText = `${name}`;
+            ui.levelDisplay.style.opacity = 1;
+            ui.levelDisplay.style.transform = "translateX(-50%) scale(1.2)";
+
+            setTimeout(() => {
+                ui.levelDisplay.style.opacity = 0;
+                ui.levelDisplay.style.transform = "translateX(-50%) scale(1)";
+            }, 3000);
+
+            ui.levelSmall.innerText = `${name}`;
+        }
+
+        function update(dt) {
+            GAME.time += dt;
+
+            // 1. Dificultad Dinámica por Tiempo
+            const oldLevel = GAME.level;
+
+            // Ajustamos tiempos para los 3 niveles
+            if (GAME.time < 30) GAME.level = 1;
+            else if (GAME.time < 60) GAME.level = 2;
+            else GAME.level = 3;
+
+            // Si supera el nivel 3, se queda en Eureka pero se vuelve más difícil
+            // (level number se mantendrá en 3 para el nombre, pero usaremos el tiempo para spawn rates)
+
+            if (GAME.level > oldLevel) showLevelUp(GAME.level);
+
+            // 2. Jugador
+            let inputDir = 0;
+            if (keys.left) inputDir = -1;
+            if (keys.right) inputDir = 1;
+
+            if (GAME.drunk > 85 && Math.random() < 0.1) inputDir *= -1;
+
+            PLAYER.vx += inputDir * PLAYER.speed * dt * 5;
+            PLAYER.vx *= PLAYER.friction;
+            PLAYER.x += PLAYER.vx * dt;
+
+            // Limites
+            if (PLAYER.x < 30) { PLAYER.x = 30; PLAYER.vx *= -0.5; }
+            if (PLAYER.x > GAME.width - 30) { PLAYER.x = GAME.width - 30; PLAYER.vx *= -0.5; }
+
+            // 3. Cantina (Boss)
+            // Calculamos un "nivel de dificultad interno" que sigue subiendo aunque el nombre sea el mismo
+            let difficultyFactor = GAME.time / 30; // 0..1..2..
+
+            CANTINA.phase += dt * (1 + difficultyFactor * 0.5);
+            let cantinaTargetX = (GAME.width / 2) + Math.sin(CANTINA.phase) * (GAME.width / 2 - 60);
+            CANTINA.x += (cantinaTargetX - CANTINA.x) * 3 * dt;
+
+            // SPAWNING
+            // Rate depende de la dificultad interna
+            const spawnRate = Math.max(0.15, 1.0 - (difficultyFactor * 0.2));
+            if (Math.random() < (dt / spawnRate)) {
+                spawnEntity(difficultyFactor);
+                spawnBarrier(difficultyFactor); // Try to spawn barrier
+            }
+
+            // 4. Entidades
+            for (let i = entities.length - 1; i >= 0; i--) {
+                let e = entities[i];
+                e.y += e.speed * dt;
+                e.rotation += e.rotSpeed * dt;
+
+                // Hitbox circular / Rectangular for barriers
+                let hit = false;
+
+                if (e.isBarrier) {
+                    // Simple AABB collision for barriers
+                    if (PLAYER.x > e.x - e.w / 2 - 20 && PLAYER.x < e.x + e.w / 2 + 20 &&
+                        PLAYER.y > e.y - e.h / 2 - 20 && PLAYER.y < e.y + e.h / 2 + 20) {
+                        hit = true;
+                    }
+                } else {
+                    const hitDist = (e.isGiant ? 50 : 35);
+                    const dist = Math.hypot(e.x - PLAYER.x, e.y - PLAYER.y);
+                    if (dist < hitDist) hit = true;
+                }
+
+                if (hit) { // Colisión
+                    if (e.isBarrier) {
+                        GAME.life -= 15;
+                        GAME.drunk += 10;
+                        spawnExplosion(PLAYER.x, PLAYER.y - 30, e.color, true);
+                        floatingTexts.push(new FloatingText(PLAYER.x, PLAYER.y - 60, "-15!", e.color, 30));
+                        // Pushback
+                        PLAYER.y += 50;
+                    } else {
+                        applyEffect(e);
+                    }
+                    entities.splice(i, 1);
+                    continue;
+                }
+
+                if (e.y > GAME.height) entities.splice(i, 1);
+            }
+
+            // 5. Particulas
+            particles.forEach((p, i) => {
+                p.update();
+                if (p.life <= 0) particles.splice(i, 1);
+            });
+            floatingTexts.forEach((t, i) => {
+                t.update();
+                if (t.life <= 0) floatingTexts.splice(i, 1);
+            });
+
+            updateUI();
+        }
+
+        function spawnEntity(difficulty) {
+            let type = {};
+            let sprite = SPRITES.wine;
+            let isGiant = Math.random() < 0.1;
+            let speed = 150 + (difficulty * 50);
+            let sizeScale = isGiant ? 1.8 : 1.0;
+
+            // Probabilidades
+            const rand = Math.random();
+            // User requested MORE alcohol and LESS healing items.
+            // Base chance for alcohol increased to 0.85 (was 0.60)
+            const alcoholChance = 0.85 + (difficulty * 0.05);
+
+            if (rand < Math.min(alcoholChance, 0.9)) {
+                // ALCOHOL
+                const r2 = Math.random();
+                if (r2 < 0.25) {
+                    // COPAS (Bajo efecto)
+                    if (Math.random() < 0.5) {
+                        sprite = SPRITES.copaVino;
+                        type = { dmg: 5, drunk: 8, color: '#ff3e3e', name: 'Copa Vino' };
+                    } else {
+                        sprite = SPRITES.copaWisky;
+                        type = { dmg: 6, drunk: 10, color: '#d35400', name: 'Copa Whisky' };
+                    }
+                } else if (r2 < 0.55) {
+                    // CORONA (x2)
+                    sprite = SPRITES.botellaCorona;
+                    type = { dmg: 10, drunk: 16, color: '#f39c12', name: 'Corona' };
+                } else if (r2 < 0.8) {
+                    // BOTELLA VINO (x3)
+                    sprite = SPRITES.botellaVino;
+                    type = { dmg: 15, drunk: 24, color: '#e67e22', name: 'Botella Vino' };
+                } else {
+                    // BOTELLA WISKY (x4) - El más fuerte
+                    sprite = SPRITES.botellaWisky;
+                    type = { dmg: 20, drunk: 32, color: '#8e44ad', name: 'Botella Whisky' };
+                }
+            } else {
+                // AYUDAS
+                const r3 = Math.random();
+                if (r3 < 0.4) {
+                    // GOTA AGUA (Bajo)
+                    sprite = SPRITES.gotaAgua;
+                    type = { heal: 5, sober: 10, color: '#3498db', name: 'Gota Agua' };
+                } else if (r3 < 0.7) {
+                    // LIMON (Medio - user request: > Gota, < Botella)
+                    sprite = SPRITES.limon;
+                    type = { heal: 15, sober: 20, color: '#2ecc71', name: 'Limon' };
+                } else {
+                    // BOTELLA AGUA (Alto - user request: > Limon)
+                    sprite = SPRITES.botellaAgua;
+                    type = { heal: 25, sober: 40, color: '#00d2ff', name: 'Botella Agua' };
+                }
+            }
+
+            // Origen
+            let startX, startY;
+            if (type.dmg) {
+                startX = CANTINA.x + (Math.random() - 0.5) * 40;
+                startY = CANTINA.y + 40;
+            } else {
+                startX = Math.random() * (GAME.width - 50) + 25;
+                startY = -50;
+            }
+
+            entities.push({
+                x: startX,
+                y: startY,
+                sprite: sprite,
+                type: type,
+                isGiant: isGiant,
+                scale: sizeScale,
+                speed: speed + Math.random() * 80,
+                rotation: Math.random() * Math.PI,
+                rotSpeed: (Math.random() - 0.5) * 4
+            });
+        }
+
+        // --- OBSTACULOS (MUROS) ---
+        function spawnBarrier(difficulty) {
+            // Chance increases with difficulty
+            if (Math.random() > (0.05 + difficulty * 0.05)) return;
+
+            const barrierWidth = 150 + Math.random() * 100;
+            const barrierX = Math.random() * (GAME.width - barrierWidth);
+
+            entities.push({
+                x: barrierX + barrierWidth / 2, // Center
+                y: -50,
+                w: barrierWidth,
+                h: 30,
+                isBarrier: true,
+                speed: 200 + (difficulty * 50),
+                color: Math.random() < 0.5 ? '#ff00cc' : '#3333ff' // Macuahuitl neon colors
+            });
+        }
+
+        function applyEffect(e) {
+            spawnExplosion(e.x, e.y, e.type.color, e.isGiant);
+
+            let label = "";
+            let color = e.type.color;
+
+            if (e.type.dmg) {
+                GAME.life -= e.type.dmg;
+                GAME.drunk += e.type.drunk;
+                label = `-${Math.round(e.type.dmg)}`;
+            } else {
+                GAME.life += e.type.heal;
+                GAME.drunk -= e.type.sober;
+                label = `+${Math.round(e.type.heal)}`;
+            }
+
+            if (e.isGiant) label += "!";
+
+            floatingTexts.push(new FloatingText(e.x, e.y - 40, label, color, e.isGiant ? 30 : 20));
+
+            GAME.life = Math.min(100, Math.max(0, GAME.life));
+            GAME.drunk = Math.min(100, Math.max(0, GAME.drunk));
+
+            if (GAME.life <= 0) gameOver();
+        }
+
+        function gameOver() {
+            gameRunning = false;
+            let finalLvlName = LEVEL_NAMES[Math.min(GAME.level, LEVEL_NAMES.length - 1)];
+            ui.gameOverScreen.style.display = 'flex';
+            ui.finalScore.innerText = `TIEMPO: ${Math.floor(GAME.time)}s\nLUGAR: ${finalLvlName}`;
+        }
+
+        function updateUI() {
+            ui.lifeBar.style.width = `${GAME.life}%`;
+            ui.lifeVal.innerText = `${Math.floor(GAME.life)}%`;
+            ui.drunkBar.style.width = `${GAME.drunk}%`;
+            ui.drunkVal.innerText = `${Math.floor(GAME.drunk)}%`;
+
+            if (GAME.life < 30) ui.lifeBar.style.filter = "brightness(1.5) drop-shadow(0 0 5px red)";
+            else ui.lifeBar.style.filter = "none";
+        }
+
+        // --- DRAW ---
+        function draw() {
+            ctx.fillStyle = '#050510';
+            ctx.fillRect(0, 0, GAME.width, GAME.height);
+
+            // Efecto Luces Disco
+            if (gameRunning) {
+                const time = Date.now() / 1000;
+                for (let i = 0; i < 3; i++) {
+                    const x = (Math.sin(time * (0.5 + i * 0.1) + i) * 0.5 + 0.5) * GAME.width;
+                    const y = (Math.cos(time * (0.3 + i * 0.1) + i) * 0.5 + 0.5) * GAME.height;
+                    const size = 200 + Math.sin(time) * 50;
+
+                    const grad = ctx.createRadialGradient(x, y, 0, x, y, size);
+                    const hue = (time * 20 + i * 60 + GAME.level * 30) % 360;
+
+                    grad.addColorStop(0, `hsla(${hue}, 70%, 50%, 0.15)`);
+                    grad.addColorStop(1, 'transparent');
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            ctx.save();
+            if (GAME.drunk > 20) {
+                const shake = (GAME.drunk - 20) * 0.05;
+                ctx.translate((Math.random() - 0.5) * shake, (Math.random() - 0.5) * shake);
+            }
+
+            particles.forEach(p => p.draw(ctx));
+
+            ctx.shadowColor = '#f1c40f';
+            ctx.shadowBlur = 20;
+            ctx.drawImage(SPRITES.cantina, CANTINA.x - 40, CANTINA.y - 40);
+            ctx.shadowBlur = 0;
+
+            entities.forEach(e => {
+                ctx.save();
+                ctx.translate(e.x, e.y);
+                ctx.rotate(e.rotation);
+                const scale = e.scale || 1.0;
+                ctx.scale(scale, scale);
+                // Force size to 60x60 regardless of source image size
+                ctx.drawImage(e.sprite, -30, -30, 60, 60);
+                ctx.restore();
+            });
+
+            const wobble = Math.sin(Date.now() / 150) * (GAME.drunk / 3);
+            ctx.save();
+            ctx.translate(PLAYER.x, PLAYER.y);
+
+            // Name Tag
+            ctx.font = "bold 14px Arial";
+            ctx.fillStyle = "#ff00cc";
+            ctx.textAlign = "center";
+            ctx.fillText("DAMARIS", 0, -50);
+
+            ctx.rotate(wobble * Math.PI / 180);
+            ctx.shadowColor = '#ff00cc';
+            ctx.shadowBlur = 15;
+            // Force player size to 60x60
+            ctx.drawImage(SPRITES.player, -30, -30, 60, 60);
+            ctx.restore();
+
+            floatingTexts.forEach(t => t.draw(ctx));
+
+            ctx.restore();
+        }
+
+        function loop() {
+            if (!gameRunning) return;
+            const now = performance.now();
+            const dt = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            update(dt);
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        ctx.fillStyle = '#050510';
+        ctx.fillRect(0, 0, 900, 600);
+        ctx.font = "30px Orbitron";
+        ctx.fillStyle = "white";
+        ctx.textAlign = "center";
+
+    </script>
+</body>
+
+</html>
