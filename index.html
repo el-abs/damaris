@@ -416,7 +416,7 @@
         const PLAYER = {
             x: 0, y: 0,
             w: 60, h: 60,
-            vx: 0, speed: 600,
+            vx: 0, vy: 0, speed: 600,
             friction: 0.9,
             targetX: 0
         };
@@ -433,35 +433,43 @@
         let floatingTexts = [];
 
         // --- INPUT ---
-        const keys = { left: false, right: false };
+        const keys = { left: false, right: false, up: false, down: false };
         window.addEventListener('keydown', e => {
             if (e.key === 'ArrowLeft') keys.left = true;
             if (e.key === 'ArrowRight') keys.right = true;
+            if (e.key === 'ArrowUp') keys.up = true;
+            if (e.key === 'ArrowDown') keys.down = true;
         });
         window.addEventListener('keyup', e => {
             if (e.key === 'ArrowLeft') keys.left = false;
             if (e.key === 'ArrowRight') keys.right = false;
+            if (e.key === 'ArrowUp') keys.up = false;
+            if (e.key === 'ArrowDown') keys.down = false;
         });
 
         // --- CONTROLES TÁCTILES (MOBILE) ---
         let touchInputX = null;
+        let touchInputY = null;
 
         window.addEventListener('touchstart', e => {
             if (!gameRunning) return; // Allow buttons to work
             e.preventDefault();
             touchInputX = e.touches[0].clientX;
+            touchInputY = e.touches[0].clientY;
         }, { passive: false });
 
         window.addEventListener('touchmove', e => {
             if (!gameRunning) return;
             e.preventDefault();
             touchInputX = e.touches[0].clientX;
+            touchInputY = e.touches[0].clientY;
         }, { passive: false });
 
         window.addEventListener('touchend', e => {
             if (!gameRunning) return;
             e.preventDefault();
             touchInputX = null;
+            touchInputY = null;
         }, { passive: false });
 
         // --- SISTEMA DE PARTÍCULAS ---
@@ -582,34 +590,50 @@
             // 2. Jugador
             if (touchInputX !== null) {
                 // Direct Touch Control (Follow Finger)
-                let target = touchInputX;
+                let targetX = touchInputX;
+                let targetY = touchInputY || PLAYER.y; // Fallback if Y is missing for some reason
 
                 // Drunk Wobble
                 if (GAME.drunk > 50) {
-                    target += Math.sin(Date.now() / 200) * (GAME.drunk * 0.8);
+                    targetX += Math.sin(Date.now() / 200) * (GAME.drunk * 0.8);
                 }
 
                 // Smooth movement towards finger
-                PLAYER.x += (target - PLAYER.x) * 10 * dt;
+                PLAYER.x += (targetX - PLAYER.x) * 10 * dt;
+                PLAYER.y += (targetY - PLAYER.y) * 10 * dt;
 
                 // Update VX for physics feel (tilt)
-                PLAYER.vx = (target - PLAYER.x) * 5;
+                PLAYER.vx = (targetX - PLAYER.x) * 5;
+                PLAYER.vy = (targetY - PLAYER.y) * 5;
             } else {
                 // Keyboard Control
-                let inputDir = 0;
-                if (keys.left) inputDir = -1;
-                if (keys.right) inputDir = 1;
+                let inputDirX = 0;
+                let inputDirY = 0;
 
-                if (GAME.drunk > 85 && Math.random() < 0.1) inputDir *= -1;
+                if (keys.left) inputDirX = -1;
+                if (keys.right) inputDirX = 1;
+                if (keys.up) inputDirY = -1;
+                if (keys.down) inputDirY = 1;
 
-                PLAYER.vx += inputDir * PLAYER.speed * dt * 5;
+                if (GAME.drunk > 85 && Math.random() < 0.1) inputDirX *= -1;
+
+                PLAYER.vx += inputDirX * PLAYER.speed * dt * 5;
+                PLAYER.vy += inputDirY * PLAYER.speed * dt * 5; // Vertical speed same as horizontal
+
                 PLAYER.vx *= PLAYER.friction;
+                PLAYER.vy *= PLAYER.friction;
+
                 PLAYER.x += PLAYER.vx * dt;
+                PLAYER.y += PLAYER.vy * dt;
             }
 
             // Limites
             if (PLAYER.x < 30) { PLAYER.x = 30; PLAYER.vx *= -0.5; }
             if (PLAYER.x > GAME.width - 30) { PLAYER.x = GAME.width - 30; PLAYER.vx *= -0.5; }
+
+            // Vertical Limits (Don't let them go too high into HUD or too low offscreen)
+            if (PLAYER.y < 100) { PLAYER.y = 100; PLAYER.vy *= -0.5; } // Don't go above HUD area
+            if (PLAYER.y > GAME.height - 50) { PLAYER.y = GAME.height - 50; PLAYER.vy *= -0.5; }
 
             // 3. Cantina (Boss)
             // Calculamos un "nivel de dificultad interno" que sigue subiendo aunque el nombre sea el mismo
