@@ -391,6 +391,7 @@
 
         // --- CONTROLES TÁCTILES (MOBILE) ---
         window.addEventListener('touchstart', e => {
+            if (!gameRunning) return; // Allow buttons to work
             e.preventDefault(); // Evitar scroll/zoom
             const touchX = e.touches[0].clientX;
             if (touchX < window.innerWidth / 2) {
@@ -403,6 +404,7 @@
         }, { passive: false });
 
         window.addEventListener('touchend', e => {
+            if (!gameRunning) return;
             e.preventDefault();
             keys.left = false;
             keys.right = false;
